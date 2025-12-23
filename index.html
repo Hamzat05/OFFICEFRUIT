@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
       // Shim process.env for the browser environment
+      // Vite will automatically inject the actual API_KEY during the build process
       window.process = window.process || { env: {} };
     </script>
     <style>
@@ -47,12 +47,6 @@
         }
         .animate-pop {
             animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .animate-spin-slow {
-            animation: spin-slow 10s linear infinite;
-        }
-        .animate-orbit {
-            animation: orbit 4s linear infinite;
         }
         .animate-bounce-fruit {
             animation: bounce-fruit 1s ease-in-out infinite;
@@ -97,7 +91,14 @@
 </script>
 </head>
 <body class="overflow-x-hidden">
+    <!-- The main React container where the UI will be injected -->
     <div id="root"></div>
+
+    <!-- 
+      VITE ENTRY POINT:
+      This script tag points to your main logic. During 'npm run build', Vite finds 
+      this file, compiles it into standard JavaScript, and places it in the 'dist' folder.
+    -->
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
