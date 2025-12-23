@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { FRUITS } from './constants';
-import { Frequency, BoxItem } from './types';
+import { Frequency } from './types';
 import FruitCard from './components/FruitCard';
 import { getFruitRecommendation } from './services/geminiService';
 import { supabase } from './services/supabaseClient';
@@ -18,7 +18,8 @@ const GURU_MESSAGES = [
   "Checking the ripeness of the web...",
   "Whispering to the pineapples...",
   "Stomping the grapes for wisdom...",
-  "Balancing the vitamins..."
+  "Balancing the vitamins...",
+  "Peeling back the layers of productivity..."
 ];
 
 const App: React.FC = () => {
@@ -31,38 +32,36 @@ const App: React.FC = () => {
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [deliveryDate, setDeliveryDate] = useState<string>(() => {
     const today = new Date();
-    today.setDate(today.getDate() + 1); // Default to tomorrow
+    today.setDate(today.getDate() + 1);
     return today.toISOString().split('T')[0];
   });
+  
   const [isGuruLoading, setIsGuruLoading] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [guruMessage, setGuruMessage] = useState<string | null>(null);
-  const [step, setStep] = useState<number>(1); // 1: Builder, 2: Checkout, 3: Success
+  const [step, setStep] = useState<number>(1); 
   const [cartPopping, setCartPopping] = useState(false);
 
-  // Cycle loading messages
+  // Loading message rotation
   useEffect(() => {
     let interval: any;
     if (isGuruLoading) {
       interval = setInterval(() => {
         setLoadingMsgIdx(prev => (prev + 1) % GURU_MESSAGES.length);
-      }, 2000);
-    } else {
-      setLoadingMsgIdx(0);
+      }, 2500);
     }
     return () => clearInterval(interval);
   }, [isGuruLoading]);
 
-  // Delivery multipliers for total upfront payment calculation
   const frequencyMultiplier = useMemo(() => {
     switch (frequency) {
       case Frequency.ONE_OFF: return 1;
-      case Frequency.DAILY: return 20; // 20 working days
-      case Frequency.WEEKLY: return 4;  // 4 weeks
-      case Frequency.BI_WEEKLY: return 2; // Every 2 weeks
+      case Frequency.DAILY: return 20;
+      case Frequency.WEEKLY: return 4;
+      case Frequency.BI_WEEKLY: return 2;
       case Frequency.MONTHLY: return 1;
-      case Frequency.BI_MONTHLY: return 1; // 1 delivery every 2 months
+      case Frequency.BI_MONTHLY: return 1;
       default: return 1;
     }
   }, [frequency]);
@@ -71,9 +70,8 @@ const App: React.FC = () => {
     return Object.values(box).reduce((acc: number, curr: number) => acc + curr, 0);
   }, [box]);
 
-  // Trigger pop animation on footer cart when item count changes
   useEffect(() => {
-    if (totalFruits >= 0) {
+    if (totalFruits > 0) {
       setCartPopping(true);
       const timer = setTimeout(() => setCartPopping(false), 300);
       return () => clearTimeout(timer);
@@ -99,7 +97,6 @@ const App: React.FC = () => {
     setBox(prev => {
       const currentQty = prev[id] || 0;
       if (currentQty <= 0) return prev;
-      
       const newQty = currentQty - 1;
       if (newQty <= 0) {
         const { [id]: _, ...rest } = prev;
@@ -110,21 +107,30 @@ const App: React.FC = () => {
   };
 
   const askGuru = async () => {
+    if (isGuruLoading) return;
     setIsGuruLoading(true);
     setGuruMessage(null);
-    const result = await getFruitRecommendation(teamSize, mood || "Productive & Creative");
-    if (result) {
-      const newBox: Record<string, number> = {};
-      result.recommendations.forEach((rec: any) => {
-        const fruit = FRUITS.find(f => f.name.toLowerCase().includes(rec.fruitName.toLowerCase()));
-        if (fruit) {
-          newBox[fruit.id] = rec.quantity;
-        }
-      });
-      setBox(newBox);
-      setGuruMessage(result.guruMessage);
+    try {
+      const result = await getFruitRecommendation(teamSize, mood || "Productive & Creative");
+      if (result) {
+        const newBox: Record<string, number> = {};
+        result.recommendations.forEach((rec: any) => {
+          const fruit = FRUITS.find(f => 
+            f.name.toLowerCase().includes(rec.fruitName.toLowerCase()) ||
+            rec.fruitName.toLowerCase().includes(f.name.toLowerCase())
+          );
+          if (fruit) {
+            newBox[fruit.id] = rec.quantity;
+          }
+        });
+        setBox(newBox);
+        setGuruMessage(result.guruMessage);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGuruLoading(false);
     }
-    setIsGuruLoading(false);
   };
 
   const saveOrderToSupabase = async (reference: string) => {
@@ -147,16 +153,12 @@ const App: React.FC = () => {
             created_at: new Date().toISOString()
           }
         ]);
-
-      if (error) {
-        console.error('Supabase Error:', error);
-      }
+      if (error) console.error('Supabase Error:', error);
     } catch (err) {
       console.error('Failed to save to Supabase:', err);
     } finally {
       setIsSaving(false);
       setStep(3);
-      setBox({});
     }
   };
 
@@ -173,371 +175,324 @@ const App: React.FC = () => {
       alert('Please enter a delivery address! 📍');
       return;
     }
-    if (!deliveryDate) {
-      alert('Please pick a delivery date! 🗓️');
-      return;
-    }
 
     const handler = window.PaystackPop.setup({
       key: 'pk_live_83d783d7d55fc07e6b09430647aa64466ee5cf4a',
       email: email,
-      amount: totalPrice * 100, // Paystack amount is in kobo
+      amount: totalPrice * 100,
       currency: 'NGN',
-      metadata: {
-        custom_fields: [
-          { display_name: "Company Name", variable_name: "company_name", value: companyName },
-          { display_name: "Delivery Address", variable_name: "delivery_address", value: deliveryAddress },
-          { display_name: "Preferred Delivery Date", variable_name: "delivery_date", value: deliveryDate },
-          { display_name: "Office Mood", variable_name: "office_mood", value: mood },
-          { display_name: "Team Size", variable_name: "team_size", value: teamSize },
-          { display_name: "Order Type", variable_name: "order_type", value: frequency === Frequency.ONE_OFF ? "One-Off Purchase" : "Subscription" },
-          { display_name: "Frequency", variable_name: "frequency", value: frequency },
-          { display_name: "Deliveries Paid", variable_name: "deliveries_paid", value: frequencyMultiplier }
-        ]
-      },
-      callback: function(response: any) {
-        saveOrderToSupabase(response.reference);
-      },
-      onClose: function() {
-        alert('Transaction cancelled. Your team is still hungry for vitamins! 🍎');
-      }
+      callback: (response: any) => saveOrderToSupabase(response.reference),
+      onClose: () => alert('Transaction cancelled. Your team is still hungry for vitamins! 🍎')
     });
-
     handler.openIframe();
   };
 
   return (
-    <div className="min-h-screen pb-32 relative">
-      <header className="pt-12 pb-8 px-6 text-center overflow-hidden">
-        <div className="absolute top-4 left-4 w-24 h-24 bg-yellow-200 rounded-full blur-3xl opacity-50 -z-10 animate-pulse"></div>
-        <div className="absolute top-20 right-10 w-32 h-32 bg-red-200 rounded-full blur-3xl opacity-50 -z-10"></div>
-        
-        <h1 className="font-cartoon text-5xl md:text-7xl text-[#332111] mb-2 tracking-tight drop-shadow-sm cursor-pointer" onClick={() => setStep(1)}>
+    <div className="min-h-screen pb-32 relative selection:bg-orange-200">
+      <header className="pt-16 pb-12 px-6 text-center overflow-hidden">
+        <div className="absolute top-10 left-[5%] w-32 h-32 bg-yellow-200 rounded-full blur-3xl opacity-40 -z-10 animate-pulse"></div>
+        <div className="absolute top-40 right-[10%] w-48 h-48 bg-orange-200 rounded-full blur-3xl opacity-40 -z-10"></div>
+        <h1 className="font-cartoon text-6xl md:text-8xl text-[#332111] mb-4 tracking-tight drop-shadow-lg cursor-pointer transition-transform hover:scale-105 active:scale-95" onClick={() => setStep(1)}>
           Office<span className="text-orange-500">Fruits</span>
         </h1>
-        <p className="text-[#5c4a38] text-lg font-medium">Delightfully fresh boxes for your dream team in Nigeria.</p>
+        <p className="text-[#5c4a38] text-xl font-bold tracking-tight">Vitamins delivered straight to your workstation. 🍏</p>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 relative z-10">
         {step === 1 ? (
-          <div className="space-y-12">
-            <section className="bg-orange-50 p-8 rounded-[40px] cartoon-border relative overflow-hidden group">
+          <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <section className="bg-orange-50 p-8 md:p-12 rounded-[50px] cartoon-border relative overflow-hidden group">
               {/* Playful Guru Loading Overlay */}
               {isGuruLoading && (
-                <div className="absolute inset-0 z-40 bg-orange-50/90 flex flex-col items-center justify-center animate-in fade-in duration-300">
-                  <div className="relative w-24 h-24 mb-6">
-                    <div className="absolute inset-0 text-5xl flex items-center justify-center animate-bounce">🧙‍♂️</div>
-                    <div className="absolute inset-0 animate-spin-slow">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 text-3xl animate-orbit" style={{ animationDelay: '0s' }}>🍎</div>
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 text-3xl animate-orbit" style={{ animationDelay: '-1s' }}>🍌</div>
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 text-3xl animate-orbit" style={{ animationDelay: '-2s' }}>🍍</div>
+                <div className="absolute inset-0 z-50 bg-orange-50/95 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+                  <div className="relative w-40 h-40 mb-8 flex items-center justify-center">
+                    <div className="text-8xl animate-bounce-fruit">🧙‍♂️</div>
+                    <div className="absolute inset-0 animate-spin-slow pointer-events-none">
+                      <span className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl animate-orbit" style={{ animationDelay: '0s' }}>🍎</span>
+                      <span className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl animate-orbit" style={{ animationDelay: '-1.3s' }}>🍌</span>
+                      <span className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl animate-orbit" style={{ animationDelay: '-2.6s' }}>🍍</span>
                     </div>
                   </div>
-                  <p className="font-cartoon text-xl text-orange-800 animate-pulse text-center px-4">
+                  <h3 className="font-cartoon text-2xl text-orange-600 mb-2 animate-pulse">
                     {GURU_MESSAGES[loadingMsgIdx]}
-                  </p>
+                  </h3>
+                  <p className="text-orange-800/60 font-bold uppercase tracking-widest text-xs">Awaiting the fruity prophecy...</p>
                 </div>
               )}
 
-              <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none transform rotate-12 transition-transform group-hover:rotate-45">
-                <span className="text-9xl">🥭</span>
-              </div>
-              
-              <div className="max-w-2xl">
-                <h2 className="font-cartoon text-3xl mb-4 text-[#332111] flex items-center gap-2">
-                  Fruit Guru Suggestion <span className="animate-float">✨</span>
-                </h2>
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-bold text-gray-700 mb-1 ml-1">Team Size</label>
+              <div className="max-w-3xl mx-auto">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="font-cartoon text-4xl text-[#332111] flex items-center gap-3">
+                    Fruit Guru <span className="animate-float">✨</span>
+                  </h2>
+                  <div className="hidden md:block bg-white px-4 py-1 rounded-full border-2 border-[#332111] text-xs font-black uppercase tracking-tighter">AI Powered Recommendation</div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">Team Size</label>
                     <input 
                       type="number" 
+                      min="1"
                       value={teamSize} 
-                      onChange={(e) => setTeamSize(Number(e.target.value))}
-                      className="w-full p-4 rounded-2xl border-2 border-[#332111] font-cartoon focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      onChange={(e) => setTeamSize(Math.max(1, Number(e.target.value)))} 
+                      className="w-full font-cartoon text-xl" 
                     />
                   </div>
-                  <div className="flex-[2]">
-                    <label className="block text-sm font-bold text-gray-700 mb-1 ml-1">Office Mood</label>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">Office Mood</label>
                     <input 
                       type="text" 
-                      placeholder="e.g. Brainstorming session, Friday fun..." 
-                      value={mood}
-                      onChange={(e) => setMood(e.target.value)}
-                      className="w-full p-4 rounded-2xl border-2 border-[#332111] focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      placeholder="e.g. Brainstorming, High Energy, Chilly" 
+                      value={mood} 
+                      onChange={(e) => setMood(e.target.value)} 
+                      className="w-full font-bold placeholder:text-gray-300" 
                     />
                   </div>
                 </div>
-                <button 
-                  onClick={askGuru}
-                  disabled={isGuruLoading}
-                  className="cartoon-button bg-yellow-400 px-8 py-4 rounded-2xl font-cartoon text-lg text-[#332111] disabled:opacity-50 relative overflow-hidden group/btn"
-                >
-                  <span className="relative z-10">{isGuruLoading ? 'Guru is Thinking...' : 'Ask the Guru! ✨'}</span>
-                  <div className="absolute inset-0 bg-yellow-300 translate-y-full group-hover/btn:translate-y-0 transition-transform"></div>
-                </button>
                 
-                {guruMessage && (
-                  <div className="mt-6 p-4 bg-white rounded-2xl border-2 border-orange-200 italic text-orange-800 animate-in fade-in slide-in-from-top-2 duration-500 relative">
-                    <div className="absolute -top-3 left-6 bg-white px-2 text-[10px] font-black uppercase text-orange-400 tracking-tighter">Guru says:</div>
-                    "{guruMessage}"
+                <button 
+                  onClick={askGuru} 
+                  disabled={isGuruLoading} 
+                  className="w-full md:w-auto cartoon-button bg-yellow-400 hover:bg-yellow-300 px-12 py-5 rounded-2xl font-cartoon text-2xl text-[#332111] disabled:opacity-50 relative group/btn overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    Ask the Guru! 🪄
+                  </span>
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform"></div>
+                </button>
+
+                {guruMessage && !isGuruLoading && (
+                  <div className="mt-10 p-8 bg-white rounded-[32px] border-4 border-orange-200 relative animate-in zoom-in-95 duration-500">
+                    <div className="absolute -top-4 left-10 bg-[#332111] text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+                      Prophecy
+                    </div>
+                    <p className="text-2xl text-orange-900 font-bold italic leading-tight">
+                      "{guruMessage}"
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {Object.entries(box).map(([id, qty]) => {
+                        const f = FRUITS.find(fruit => fruit.id === id);
+                        return qty > 0 ? (
+                          <span key={id} className="bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">
+                            {f?.emoji} {f?.name} x{qty}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             </section>
 
-            <section>
-              <div className="flex justify-between items-end mb-8">
-                <h2 className="font-cartoon text-4xl text-[#332111]">Pick Your Fruits</h2>
-                <p className="text-sm font-bold text-gray-500">Available Fresh Today 🌿</p>
+            <section className="space-y-10">
+              <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-4">
+                <div className="text-center md:text-left">
+                  <h2 className="font-cartoon text-5xl text-[#332111] mb-2">The Orchard</h2>
+                  <p className="text-gray-500 font-bold">Pick your favorites or let the Guru decide. 🌿</p>
+                </div>
+                <div className="flex bg-white p-2 rounded-2xl border-2 border-[#332111] text-xs font-black uppercase overflow-hidden">
+                  <div className="px-4 py-2 bg-green-100 text-green-700 rounded-xl">Freshly Sourced</div>
+                  <div className="px-4 py-2">Premium Grade</div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
                 {FRUITS.map(fruit => (
                   <FruitCard 
                     key={fruit.id} 
                     fruit={fruit} 
-                    quantity={box[fruit.id] || 0}
-                    onAdd={handleAdd}
-                    onRemove={handleRemove}
+                    quantity={box[fruit.id] || 0} 
+                    onAdd={handleAdd} 
+                    onRemove={handleRemove} 
                   />
                 ))}
               </div>
             </section>
           </div>
         ) : step === 2 ? (
-          /* ... Rest of step 2 and step 3 remains same ... */
-          <div className="bg-white p-8 md:p-12 rounded-[40px] cartoon-border max-w-2xl mx-auto animate-in zoom-in-95 duration-300 relative">
+          <div className="bg-white p-8 md:p-16 rounded-[60px] cartoon-border max-w-3xl mx-auto animate-in zoom-in-95 duration-500 relative">
             {isSaving && (
-              <div className="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center rounded-[40px]">
-                <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="font-cartoon text-xl text-[#332111]">Securing your vitamins...</p>
+              <div className="absolute inset-0 bg-white/90 z-50 flex flex-col items-center justify-center rounded-[60px]">
+                <div className="w-20 h-20 border-8 border-orange-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                <p className="font-cartoon text-3xl text-[#332111]">Securing the harvest...</p>
               </div>
             )}
             
-            <h2 className="font-cartoon text-4xl mb-8 text-center text-[#332111]">Checkout Details</h2>
-            
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
-                    Company Name
-                  </label>
-                  <div className="relative group">
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Acme Inc" 
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="w-full p-4 pl-14 rounded-2xl border-2 border-[#332111] font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all shadow-sm"
-                      required
-                    />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center border border-[#332111] group-focus-within:bg-blue-200 transition-colors">
-                      <span className="text-lg">🏢</span>
-                    </div>
-                  </div>
-                </div>
+            <div className="text-center mb-12">
+              <h2 className="font-cartoon text-5xl text-[#332111] mb-2">Final Step! 🍏</h2>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Let's get this box to your team</p>
+            </div>
 
-                <div className="space-y-2">
-                  <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
-                    Work Email
-                  </label>
-                  <div className="relative group">
-                    <input 
-                      type="email" 
-                      placeholder="yourname@office.com" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-4 pl-14 rounded-2xl border-2 border-[#332111] font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all shadow-sm"
-                      required
-                    />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center border border-[#332111] group-focus-within:bg-purple-200 transition-colors">
-                      <span className="text-lg">📧</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
-                  Delivery Address
-                </label>
-                <div className="relative group">
-                  <textarea 
-                    placeholder="Street address, floor, office number..." 
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="w-full p-4 pl-14 rounded-2xl border-2 border-[#332111] font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 min-h-[100px] transition-all shadow-sm"
-                    required
-                  />
-                  <div className="absolute left-3 top-4 w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center border border-[#332111] group-focus-within:bg-green-200 transition-colors">
-                    <span className="text-lg">📍</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
-                  Preferred First Delivery Date
-                </label>
-                <div className="relative group">
+            <div className="space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">Office Name</label>
                   <input 
-                    type="date" 
-                    value={deliveryDate}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setDeliveryDate(e.target.value)}
-                    className="w-full p-4 pl-14 rounded-2xl border-2 border-[#332111] font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all shadow-sm"
-                    required
+                    type="text" 
+                    placeholder="e.g. Creative Hub" 
+                    value={companyName} 
+                    onChange={(e) => setCompanyName(e.target.value)} 
+                    className="w-full font-bold" 
+                    required 
                   />
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center border border-[#332111] group-focus-within:bg-yellow-200 transition-colors">
-                    <span className="text-lg">🗓️</span>
-                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">Work Email</label>
+                  <input 
+                    type="email" 
+                    placeholder="hi@office.com" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    className="w-full font-bold" 
+                    required 
+                  />
                 </div>
               </div>
 
-              <div className="p-6 bg-gray-50 rounded-3xl border-2 border-[#332111] border-dashed">
-                <h3 className="font-cartoon text-xl mb-4 border-b-2 border-gray-200 pb-2 flex justify-between items-center">
-                  <span className="flex items-center gap-2">🧺 Your Fruit Box</span>
-                  <span className="text-sm font-sans text-gray-400 font-bold">₦{boxPrice.toLocaleString()} / delivery</span>
+              <div className="space-y-3">
+                <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">Delivery HQ</label>
+                <textarea 
+                  placeholder="Street, Building, Floor..." 
+                  value={deliveryAddress} 
+                  onChange={(e) => setDeliveryAddress(e.target.value)} 
+                  className="w-full font-bold min-h-[120px] resize-none" 
+                  required 
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">First Drop Date</label>
+                <input 
+                  type="date" 
+                  value={deliveryDate} 
+                  min={new Date().toISOString().split('T')[0]} 
+                  onChange={(e) => setDeliveryDate(e.target.value)} 
+                  className="w-full font-bold" 
+                  required 
+                />
+              </div>
+
+              <div className="p-8 bg-gray-50 rounded-[40px] border-4 border-[#332111] border-dashed">
+                <h3 className="font-cartoon text-2xl mb-6 border-b-4 border-gray-200 pb-2 flex justify-between items-center">
+                  <span>🧺 Box Content</span>
+                  <span className="text-lg text-orange-500">₦{boxPrice.toLocaleString()}</span>
                 </h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 max-h-60 overflow-y-auto pr-4 custom-scrollbar">
                   {Object.entries(box).map(([id, qty]) => {
                     const fruit = FRUITS.find(f => f.id === id);
                     return (
-                      <div key={id} className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{fruit?.emoji}</span>
-                          <span className="font-bold text-[#332111]">{fruit?.name}</span>
+                      <div key={id} className="flex justify-between items-center text-sm bg-white p-3 rounded-2xl border-2 border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{fruit?.emoji}</span>
+                          <span className="font-black text-[#332111]">{fruit?.name}</span>
                         </div>
-                        <span className="font-cartoon text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">x{qty}</span>
+                        <span className="font-cartoon text-orange-600 bg-orange-50 px-4 py-1 rounded-full border border-orange-200">x{qty}</span>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              <div>
-                <label className="block font-cartoon text-xl mb-3 text-[#332111]">Order Schedule</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="space-y-4">
+                <label className="block text-sm font-black text-[#332111] uppercase tracking-wider text-center">Delivery Frequency</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {Object.values(Frequency).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setFrequency(f)}
-                      className={`p-3 rounded-xl border-2 font-bold text-sm transition-all ${
+                    <button 
+                      key={f} 
+                      onClick={() => setFrequency(f)} 
+                      className={`py-4 rounded-2xl border-4 font-cartoon text-sm transition-all shadow-[4px_4px_0px_#332111] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
                         frequency === f 
-                          ? 'bg-[#332111] text-white border-[#332111] scale-105 shadow-md' 
-                          : 'bg-white text-[#332111] border-[#332111] hover:bg-orange-50'
+                        ? 'bg-[#332111] text-white border-[#332111]' 
+                        : 'bg-white text-[#332111] border-[#332111] hover:bg-orange-50'
                       }`}
                     >
                       {f}
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-orange-600 mt-2 font-bold uppercase tracking-tighter text-center">
-                  {frequency === Frequency.ONE_OFF 
-                    ? '✨ Just this once, no commitment' 
-                    : `✨ We'll pre-bill you for ${frequencyMultiplier} juicy deliveries`}
-                </p>
               </div>
 
-              <div className="bg-orange-100 p-6 rounded-3xl border-2 border-[#332111] flex justify-between items-center shadow-inner relative overflow-hidden">
-                <div className="absolute right-[-10px] bottom-[-10px] text-6xl opacity-10 rotate-12 pointer-events-none">💰</div>
-                <div className="relative z-10">
-                  <p className="text-xs uppercase font-black text-orange-800 tracking-widest">
-                    {frequency === Frequency.ONE_OFF ? 'Amount Due' : 'Upfront Payment'}
-                  </p>
-                  <p className="font-cartoon text-4xl text-[#332111]">₦{totalPrice.toLocaleString()}</p>
+              <div className="bg-orange-100 p-10 rounded-[40px] border-4 border-[#332111] flex flex-col md:flex-row justify-between items-center gap-6 shadow-[8px_8px_0px_#332111]">
+                <div className="text-center md:text-left">
+                  <p className="text-xs uppercase font-black text-orange-800 tracking-widest mb-1">Total Upfront Amount</p>
+                  <p className="font-cartoon text-6xl text-[#332111]">₦{totalPrice.toLocaleString()}</p>
                 </div>
-                <div className="text-right relative z-10">
-                  <p className="text-xs uppercase font-black text-gray-500 tracking-widest">{frequencyMultiplier} Delivery</p>
-                  <p className="text-sm font-bold text-gray-700">{frequency === Frequency.ONE_OFF ? 'Single' : `${frequency}`}</p>
+                <div className="text-center md:text-right bg-white/40 px-6 py-4 rounded-3xl border-2 border-[#332111]/10">
+                  <p className="text-xs uppercase font-black text-gray-600 tracking-widest mb-1">Coverage</p>
+                  <p className="text-xl font-cartoon text-[#332111]">{frequencyMultiplier} {frequencyMultiplier === 1 ? 'Delivery' : 'Deliveries'}</p>
+                  <p className="text-[10px] font-black uppercase text-gray-400 mt-1">{frequency} Schedule</p>
                 </div>
               </div>
 
               <button 
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-cartoon text-2xl py-6 rounded-3xl cartoon-button transition-colors flex flex-col items-center justify-center gap-1 shadow-lg group"
-                onClick={handlePlaceSubscription}
+                className="w-full bg-green-500 hover:bg-green-400 text-white font-cartoon text-3xl py-8 rounded-[35px] cartoon-button shadow-xl flex items-center justify-center gap-4 group/pay" 
+                onClick={handlePlaceSubscription} 
                 disabled={isSaving}
               >
-                <div className="flex items-center gap-2 group-hover:scale-110 transition-transform">
-                  <span>Pay with Paystack</span>
-                  <span>🚀</span>
-                </div>
-                <span className="text-xs opacity-80 uppercase tracking-widest font-sans font-bold">
-                  {frequency === Frequency.ONE_OFF ? 'Safe & Secure Checkout' : 'Secure Pre-payment'}
-                </span>
+                <span>Pay Now</span>
+                <span className="group-hover/pay:translate-x-2 transition-transform">🚀</span>
               </button>
               
               <button 
-                className="w-full text-[#332111] font-bold text-sm hover:underline hover:text-orange-600 transition-colors"
+                className="w-full text-gray-400 font-black uppercase tracking-widest text-xs hover:text-[#332111] transition-colors" 
                 onClick={() => setStep(1)}
               >
-                ← Back to customizer
+                ← Edit your fruit box
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-white p-12 rounded-[40px] cartoon-border max-w-xl mx-auto text-center animate-in zoom-in-95 duration-500">
-             <div className="text-8xl mb-6 animate-bounce">🎊</div>
-             <h2 className="font-cartoon text-4xl mb-4 text-[#332111]">Order Confirmed!</h2>
-             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-               {frequency === Frequency.ONE_OFF ? (
-                 <>Success! <b>{companyName}</b>, your one-off fruit box is on its way!</>
-               ) : (
-                 <>Success! <b>{companyName}</b> is officially subscribed! We've received your upfront payment for <b>{frequencyMultiplier}</b> deliveries.</>
-               )}
-               <br/><br/>
-               First delivery scheduled for: <span className="font-bold text-green-600">{new Date(deliveryDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-               <br/><br/>
-               Delivery will be sent to: <br/>
-               <span className="italic text-orange-600">"{deliveryAddress}"</span>
-               <br/><br/>
-               Records saved! Check <b>{email}</b> for receipt.
-             </p>
+          <div className="bg-white p-16 md:p-24 rounded-[70px] cartoon-border max-w-2xl mx-auto text-center animate-in zoom-in-95 duration-700 shadow-2xl">
+             <div className="text-9xl mb-8 animate-bounce-fruit inline-block">🎉</div>
+             <h2 className="font-cartoon text-6xl mb-6 text-[#332111]">You're All Set!</h2>
+             <div className="space-y-6 text-xl text-gray-600 font-bold mb-12">
+               <p>The harvest is ready! 🧺</p>
+               <p className="bg-orange-50 p-6 rounded-3xl border-2 border-orange-100 text-orange-800 italic">
+                 "Welcome to the OfficeFruits family, <b>{companyName}</b>! We've locked in your upfront payment for <b>{frequencyMultiplier}</b> {frequency.toLowerCase()} deliveries."
+               </p>
+               <p className="text-sm">Receipt sent to: <b>{email}</b></p>
+             </div>
              <button 
-                className="cartoon-button bg-orange-500 text-white font-cartoon text-xl px-12 py-4 rounded-3xl"
-                onClick={() => {
-                  setStep(1);
-                  setCompanyName('');
-                  setDeliveryAddress('');
-                  setBox({});
-                  setFrequency(Frequency.WEEKLY);
-                }}
+                className="cartoon-button bg-orange-500 hover:bg-orange-400 text-white font-cartoon text-2xl px-16 py-6 rounded-[30px] transition-transform hover:scale-105" 
+                onClick={() => { setStep(1); setBox({}); }}
               >
-                Build Another Box! 🧺
+                Build More Joy! 🧺
               </button>
           </div>
         )}
       </main>
 
       {step === 1 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-lg z-50">
-          <div className="bg-white cartoon-border p-4 flex items-center justify-between rounded-3xl shadow-2xl">
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-2xl transition-all duration-300 ${cartPopping ? 'animate-pop' : 'animate-bounce-subtle'}`}>
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-xl z-50">
+          <div className="bg-white/95 backdrop-blur-sm cartoon-border p-5 flex items-center justify-between rounded-[35px] shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
+            <div className="flex items-center gap-5">
+              <div className={`w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center text-3xl transition-all duration-300 ${cartPopping ? 'animate-pop scale-125 bg-orange-200' : 'animate-bounce-subtle'}`}>
                 📦
               </div>
               <div>
-                <p className="font-cartoon text-lg leading-none">₦{boxPrice.toLocaleString()}</p>
-                <p className="text-xs font-bold text-gray-500">{totalFruits} items per delivery</p>
+                <p className="font-cartoon text-2xl leading-none text-[#332111]">₦{boxPrice.toLocaleString()}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">{totalFruits} items in box</p>
               </div>
             </div>
             <button 
-              onClick={() => setStep(2)}
-              disabled={totalFruits === 0}
-              className="bg-orange-500 text-white font-cartoon px-8 py-3 rounded-2xl cartoon-button disabled:opacity-50"
+              onClick={() => setStep(2)} 
+              disabled={totalFruits === 0} 
+              className="bg-[#332111] text-white font-cartoon px-10 py-4 rounded-2xl cartoon-button disabled:opacity-50 disabled:grayscale transition-all hover:bg-orange-600"
             >
-              Checkout
+              Order Now
             </button>
           </div>
         </div>
       )}
 
-      <div className="fixed -z-20 inset-0 pointer-events-none overflow-hidden select-none">
-        <div className="absolute top-10 left-[10%] text-6xl opacity-[0.05] animate-float">🍍</div>
-        <div className="absolute top-24 right-[15%] text-4xl opacity-[0.07] animate-float" style={{animationDelay: '0.5s'}}>🍎</div>
-        <div className="absolute top-60 left-[25%] text-5xl opacity-[0.04] animate-float" style={{animationDelay: '1.2s'}}>🍌</div>
-        <div className="absolute bottom-20 left-[12%] text-7xl opacity-[0.05] animate-float" style={{animationDelay: '1.8s'}}>🍉</div>
-        <div className="absolute bottom-40 right-[8%] text-6xl opacity-[0.07] animate-float" style={{animationDelay: '1s'}}>🍐</div>
+      {/* Dynamic Floating Background Elements */}
+      <div className="fixed -z-20 inset-0 pointer-events-none overflow-hidden select-none opacity-20">
+        <div className="absolute top-[5%] left-[5%] text-7xl animate-float" style={{animationDuration: '6s'}}>🍍</div>
+        <div className="absolute top-[20%] right-[10%] text-6xl animate-float" style={{animationDuration: '8s', animationDelay: '1s'}}>🍎</div>
+        <div className="absolute top-[45%] left-[15%] text-5xl animate-float" style={{animationDuration: '7s', animationDelay: '2s'}}>🍌</div>
+        <div className="absolute bottom-[15%] left-[8%] text-8xl animate-float" style={{animationDuration: '9s', animationDelay: '0.5s'}}>🍉</div>
+        <div className="absolute bottom-[25%] right-[12%] text-6xl animate-float" style={{animationDuration: '5s', animationDelay: '1.5s'}}>🍐</div>
+        <div className="absolute top-[60%] right-[20%] text-5xl animate-float" style={{animationDuration: '10s', animationDelay: '3s'}}>🥭</div>
       </div>
     </div>
   );
