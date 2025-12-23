@@ -12,6 +12,15 @@ declare global {
   }
 }
 
+const GURU_MESSAGES = [
+  "Consulting the wise old vines...",
+  "Squeezing out fresh ideas...",
+  "Checking the ripeness of the web...",
+  "Whispering to the pineapples...",
+  "Stomping the grapes for wisdom...",
+  "Balancing the vitamins..."
+];
+
 const App: React.FC = () => {
   const [box, setBox] = useState<Record<string, number>>({});
   const [frequency, setFrequency] = useState<Frequency>(Frequency.WEEKLY);
@@ -26,10 +35,24 @@ const App: React.FC = () => {
     return today.toISOString().split('T')[0];
   });
   const [isGuruLoading, setIsGuruLoading] = useState(false);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [guruMessage, setGuruMessage] = useState<string | null>(null);
   const [step, setStep] = useState<number>(1); // 1: Builder, 2: Checkout, 3: Success
   const [cartPopping, setCartPopping] = useState(false);
+
+  // Cycle loading messages
+  useEffect(() => {
+    let interval: any;
+    if (isGuruLoading) {
+      interval = setInterval(() => {
+        setLoadingMsgIdx(prev => (prev + 1) % GURU_MESSAGES.length);
+      }, 2000);
+    } else {
+      setLoadingMsgIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [isGuruLoading]);
 
   // Delivery multipliers for total upfront payment calculation
   const frequencyMultiplier = useMemo(() => {
@@ -73,16 +96,11 @@ const App: React.FC = () => {
   };
 
   const handleRemove = (id: string) => {
-    const currentQty = box[id] || 0;
-    
-    if (currentQty === 1) {
-      const fruit = FRUITS.find(f => f.id === id);
-      const confirmed = window.confirm(`Remove all ${fruit?.name || 'items'} from your box? 🍇`);
-      if (!confirmed) return;
-    }
-
     setBox(prev => {
-      const newQty = (prev[id] || 0) - 1;
+      const currentQty = prev[id] || 0;
+      if (currentQty <= 0) return prev;
+      
+      const newQty = currentQty - 1;
       if (newQty <= 0) {
         const { [id]: _, ...rest } = prev;
         return rest;
@@ -203,12 +221,32 @@ const App: React.FC = () => {
       <main className="max-w-6xl mx-auto px-6 relative z-10">
         {step === 1 ? (
           <div className="space-y-12">
-            <section className="bg-orange-50 p-8 rounded-[40px] cartoon-border relative overflow-hidden">
-              <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none transform rotate-12">
+            <section className="bg-orange-50 p-8 rounded-[40px] cartoon-border relative overflow-hidden group">
+              {/* Playful Guru Loading Overlay */}
+              {isGuruLoading && (
+                <div className="absolute inset-0 z-40 bg-orange-50/90 flex flex-col items-center justify-center animate-in fade-in duration-300">
+                  <div className="relative w-24 h-24 mb-6">
+                    <div className="absolute inset-0 text-5xl flex items-center justify-center animate-bounce">🧙‍♂️</div>
+                    <div className="absolute inset-0 animate-spin-slow">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 text-3xl animate-orbit" style={{ animationDelay: '0s' }}>🍎</div>
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 text-3xl animate-orbit" style={{ animationDelay: '-1s' }}>🍌</div>
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 text-3xl animate-orbit" style={{ animationDelay: '-2s' }}>🍍</div>
+                    </div>
+                  </div>
+                  <p className="font-cartoon text-xl text-orange-800 animate-pulse text-center px-4">
+                    {GURU_MESSAGES[loadingMsgIdx]}
+                  </p>
+                </div>
+              )}
+
+              <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none transform rotate-12 transition-transform group-hover:rotate-45">
                 <span className="text-9xl">🥭</span>
               </div>
+              
               <div className="max-w-2xl">
-                <h2 className="font-cartoon text-3xl mb-4 text-[#332111]">Fruit Guru Suggestion</h2>
+                <h2 className="font-cartoon text-3xl mb-4 text-[#332111] flex items-center gap-2">
+                  Fruit Guru Suggestion <span className="animate-float">✨</span>
+                </h2>
                 <div className="flex flex-col md:flex-row gap-4 mb-4">
                   <div className="flex-1">
                     <label className="block text-sm font-bold text-gray-700 mb-1 ml-1">Team Size</label>
@@ -233,13 +271,15 @@ const App: React.FC = () => {
                 <button 
                   onClick={askGuru}
                   disabled={isGuruLoading}
-                  className="cartoon-button bg-yellow-400 px-8 py-4 rounded-2xl font-cartoon text-lg text-[#332111] disabled:opacity-50"
+                  className="cartoon-button bg-yellow-400 px-8 py-4 rounded-2xl font-cartoon text-lg text-[#332111] disabled:opacity-50 relative overflow-hidden group/btn"
                 >
-                  {isGuruLoading ? 'Magic in progress...' : 'Ask the Guru! ✨'}
+                  <span className="relative z-10">{isGuruLoading ? 'Guru is Thinking...' : 'Ask the Guru! ✨'}</span>
+                  <div className="absolute inset-0 bg-yellow-300 translate-y-full group-hover/btn:translate-y-0 transition-transform"></div>
                 </button>
                 
                 {guruMessage && (
-                  <div className="mt-6 p-4 bg-white rounded-2xl border-2 border-orange-200 italic text-orange-800 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <div className="mt-6 p-4 bg-white rounded-2xl border-2 border-orange-200 italic text-orange-800 animate-in fade-in slide-in-from-top-2 duration-500 relative">
+                    <div className="absolute -top-3 left-6 bg-white px-2 text-[10px] font-black uppercase text-orange-400 tracking-tighter">Guru says:</div>
                     "{guruMessage}"
                   </div>
                 )}
@@ -265,6 +305,7 @@ const App: React.FC = () => {
             </section>
           </div>
         ) : step === 2 ? (
+          /* ... Rest of step 2 and step 3 remains same ... */
           <div className="bg-white p-8 md:p-12 rounded-[40px] cartoon-border max-w-2xl mx-auto animate-in zoom-in-95 duration-300 relative">
             {isSaving && (
               <div className="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center rounded-[40px]">
@@ -277,7 +318,6 @@ const App: React.FC = () => {
             
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Company Name */}
                 <div className="space-y-2">
                   <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
                     Company Name
@@ -295,10 +335,8 @@ const App: React.FC = () => {
                       <span className="text-lg">🏢</span>
                     </div>
                   </div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">The name of your awesome workplace</p>
                 </div>
 
-                {/* Work Email */}
                 <div className="space-y-2">
                   <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
                     Work Email
@@ -316,11 +354,9 @@ const App: React.FC = () => {
                       <span className="text-lg">📧</span>
                     </div>
                   </div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Where to send the receipt & updates</p>
                 </div>
               </div>
 
-              {/* Delivery Address */}
               <div className="space-y-2">
                 <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
                   Delivery Address
@@ -337,10 +373,8 @@ const App: React.FC = () => {
                     <span className="text-lg">📍</span>
                   </div>
                 </div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Help our fruit-riders find you easily!</p>
               </div>
 
-              {/* Delivery Date */}
               <div className="space-y-2">
                 <label className="block font-cartoon text-lg text-[#332111] flex items-center gap-2">
                   Preferred First Delivery Date
@@ -358,10 +392,8 @@ const App: React.FC = () => {
                     <span className="text-lg">🗓️</span>
                   </div>
                 </div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Pick a day when everyone is in the office</p>
               </div>
 
-              {/* Order Summary */}
               <div className="p-6 bg-gray-50 rounded-3xl border-2 border-[#332111] border-dashed">
                 <h3 className="font-cartoon text-xl mb-4 border-b-2 border-gray-200 pb-2 flex justify-between items-center">
                   <span className="flex items-center gap-2">🧺 Your Fruit Box</span>
@@ -383,7 +415,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Frequency Selection */}
               <div>
                 <label className="block font-cartoon text-xl mb-3 text-[#332111]">Order Schedule</label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -408,7 +439,6 @@ const App: React.FC = () => {
                 </p>
               </div>
 
-              {/* Total Card */}
               <div className="bg-orange-100 p-6 rounded-3xl border-2 border-[#332111] flex justify-between items-center shadow-inner relative overflow-hidden">
                 <div className="absolute right-[-10px] bottom-[-10px] text-6xl opacity-10 rotate-12 pointer-events-none">💰</div>
                 <div className="relative z-10">
@@ -423,7 +453,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <button 
                 className="w-full bg-green-500 hover:bg-green-600 text-white font-cartoon text-2xl py-6 rounded-3xl cartoon-button transition-colors flex flex-col items-center justify-center gap-1 shadow-lg group"
                 onClick={handlePlaceSubscription}
@@ -462,7 +491,7 @@ const App: React.FC = () => {
                Delivery will be sent to: <br/>
                <span className="italic text-orange-600">"{deliveryAddress}"</span>
                <br/><br/>
-               The records have been saved to our office backend. Check <b>{email}</b> for your receipt!
+               Records saved! Check <b>{email}</b> for receipt.
              </p>
              <button 
                 className="cartoon-button bg-orange-500 text-white font-cartoon text-xl px-12 py-4 rounded-3xl"
@@ -503,23 +532,12 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Decorative floating background elements */}
       <div className="fixed -z-20 inset-0 pointer-events-none overflow-hidden select-none">
         <div className="absolute top-10 left-[10%] text-6xl opacity-[0.05] animate-float">🍍</div>
         <div className="absolute top-24 right-[15%] text-4xl opacity-[0.07] animate-float" style={{animationDelay: '0.5s'}}>🍎</div>
         <div className="absolute top-60 left-[25%] text-5xl opacity-[0.04] animate-float" style={{animationDelay: '1.2s'}}>🍌</div>
-        <div className="absolute top-1/4 right-[5%] text-7xl opacity-[0.06] animate-float" style={{animationDelay: '0.8s'}}>🍊</div>
-        <div className="absolute top-1/2 left-[5%] text-5xl opacity-[0.08] animate-float" style={{animationDelay: '2s'}}>🍓</div>
-        <div className="absolute top-[45%] right-[20%] text-4xl opacity-[0.05] animate-float" style={{animationDelay: '1.5s'}}>🍇</div>
-        <div className="absolute top-[55%] left-[18%] text-6xl opacity-[0.03] animate-float" style={{animationDelay: '2.5s'}}>🥝</div>
-        <div className="absolute top-[60%] right-[30%] text-5xl opacity-[0.06] animate-float" style={{animationDelay: '0.2s'}}>🍑</div>
         <div className="absolute bottom-20 left-[12%] text-7xl opacity-[0.05] animate-float" style={{animationDelay: '1.8s'}}>🍉</div>
         <div className="absolute bottom-40 right-[8%] text-6xl opacity-[0.07] animate-float" style={{animationDelay: '1s'}}>🍐</div>
-        <div className="absolute bottom-10 right-[25%] text-4xl opacity-[0.04] animate-float" style={{animationDelay: '3s'}}>🍒</div>
-        <div className="absolute bottom-60 left-[35%] text-5xl opacity-[0.06] animate-float" style={{animationDelay: '0.7s'}}>🫐</div>
-        <div className="absolute bottom-1/4 right-[40%] text-4xl opacity-[0.05] animate-float" style={{animationDelay: '2.2s'}}>🍋</div>
-        <div className="absolute top-[10%] left-[60%] w-64 h-64 bg-orange-100 rounded-full blur-[100px] opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-[20%] left-[20%] w-80 h-80 bg-yellow-100 rounded-full blur-[120px] opacity-20 animate-pulse" style={{animationDuration: '5s'}}></div>
       </div>
     </div>
   );

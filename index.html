@@ -26,6 +26,20 @@
             50% { transform: scale(1.15); }
             100% { transform: scale(1); }
         }
+        @keyframes squash-stretch {
+            0% { transform: scale(1, 1); }
+            30% { transform: scale(1.25, 0.75); }
+            40% { transform: scale(0.75, 1.25); }
+            50% { transform: scale(1.15, 0.85); }
+            65% { transform: scale(0.95, 1.05); }
+            75% { transform: scale(1.05, 0.95); }
+            100% { transform: scale(1, 1); }
+        }
+        @keyframes implode {
+            0% { transform: scale(1); opacity: 1; }
+            20% { transform: scale(1.2); }
+            100% { transform: scale(0); opacity: 0; }
+        }
         @keyframes bounce-subtle {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-5px); }
@@ -45,15 +59,29 @@
             77.7% { transform: skewX(0.390625deg) skewY(0.390625deg); }
             88.8% { transform: skewX(-0.1953125deg) skewY(-0.1953125deg); }
         }
-        @keyframes fly-up {
-            0% { transform: translateY(0) scale(1); opacity: 1; }
-            100% { transform: translateY(-40px) scale(1.5); opacity: 0; }
+        @keyframes fly-up-burst {
+            0% { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+            100% { transform: translate(var(--tw-translate-x), -60px) scale(0.5) rotate(45deg); opacity: 0; }
+        }
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes orbit {
+            from { transform: rotate(0deg) translateX(40px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(40px) rotate(-360deg); }
         }
         .animate-float {
             animation: float 3s ease-in-out infinite;
         }
         .animate-pop {
             animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .animate-squash-stretch {
+            animation: squash-stretch 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .animate-implode {
+            animation: implode 0.3s ease-in forwards;
         }
         .animate-bounce-subtle {
             animation: bounce-subtle 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -64,8 +92,14 @@
         .animate-jello {
             animation: jello 0.6s both;
         }
-        .animate-fly-up {
-            animation: fly-up 0.5s ease-out forwards;
+        .animate-fly-up-burst {
+            animation: fly-up-burst 0.6s ease-out forwards;
+        }
+        .animate-spin-slow {
+            animation: spin-slow 8s linear infinite;
+        }
+        .animate-orbit {
+            animation: orbit 3s linear infinite;
         }
         .cartoon-border {
             border: 4px solid #332111;
