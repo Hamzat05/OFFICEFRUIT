@@ -10,6 +10,8 @@ export const FRUITS: Fruit[] = [
   { id: 'pineapple', name: 'Big Pineapple', emoji: '🍍', color: 'bg-yellow-500', price: 4000, description: 'Tropical office party.' },
   { id: 'mango', name: 'Juicy Mango', emoji: '🥭', color: 'bg-orange-300', price: 3500, description: 'King of fruits.' },
   { id: 'strawberry', name: 'Red Berries', emoji: '🍓', color: 'bg-rose-400', price: 3000, description: 'Summer vibes only.' },
+  { id: 'dates', name: 'Medjool Dates', emoji: '🌴', color: 'bg-amber-800', price: 6500, description: 'Premium Ramadan essential.' },
+  { id: 'nuts', name: 'Roasted Nuts', emoji: '🥜', color: 'bg-amber-600', price: 5000, description: 'Healthy snacking for Iftar.' },
   { id: 'watermelon', name: 'Big Melon', emoji: '🍉', color: 'bg-red-500', price: 5500, description: 'Hydration hero.' },
   { id: 'pear', name: 'Soft Pear', emoji: '🍐', color: 'bg-green-300', price: 900, description: 'Sweet and gentle.' },
   { id: 'blueberry', name: 'Blueberry Pack', emoji: '🫐', color: 'bg-blue-400', price: 4500, description: 'Brain food for coders.' },
