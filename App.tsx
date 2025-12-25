@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
+  const [note, setNote] = useState<string>(''); // New state for the custom note
   const [deliveryDate, setDeliveryDate] = useState<string>(() => {
     const today = new Date();
     today.setDate(today.getDate() + 1);
@@ -67,7 +68,8 @@ const App: React.FC = () => {
   }, [frequency]);
 
   const totalFruits = useMemo(() => {
-    return Object.values(box).reduce((acc: number, curr: number) => acc + curr, 0);
+    // Explicitly cast to any[] then map/reduce to ensure TypeScript knows these are numbers
+    return Object.values(box).reduce((acc: number, curr: any) => acc + (Number(curr) || 0), 0);
   }, [box]);
 
   useEffect(() => {
@@ -79,9 +81,10 @@ const App: React.FC = () => {
   }, [totalFruits]);
 
   const boxPrice = useMemo(() => {
-    return Object.entries(box).reduce((acc: number, [id, qty]: [string, number]) => {
+    // Fix: Explicitly type entries to handle environments where they are inferred as unknown
+    return Object.entries(box).reduce((acc: number, [id, qty]: [string, any]) => {
       const fruit = FRUITS.find(f => f.id === id);
-      return acc + (fruit?.price || 0) * qty;
+      return acc + (fruit?.price || 0) * (Number(qty) || 0);
     }, 0);
   }, [box]);
 
@@ -150,6 +153,7 @@ const App: React.FC = () => {
             team_size: teamSize,
             paystack_reference: reference,
             status: 'paid',
+            note: note, // Include the personalized note in the database record
             created_at: new Date().toISOString()
           }
         ]);
@@ -271,9 +275,10 @@ const App: React.FC = () => {
                       "{guruMessage}"
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {Object.entries(box).map(([id, qty]) => {
+                      {/* Fix: Explicitly type entries and use a safe comparison to resolve 'unknown' operator error on line 278 */}
+                      {Object.entries(box).map(([id, qty]: [string, any]) => {
                         const f = FRUITS.find(fruit => fruit.id === id);
-                        return qty > 0 ? (
+                        return (qty as number) > 0 ? (
                           <span key={id} className="bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">
                             {f?.emoji} {f?.name} x{qty}
                           </span>
@@ -361,6 +366,16 @@ const App: React.FC = () => {
               </div>
 
               <div className="space-y-3">
+                <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">Handwritten Note (Optional) 📝</label>
+                <textarea 
+                  placeholder="A message for the team or delivery instructions... ✍️" 
+                  value={note} 
+                  onChange={(e) => setNote(e.target.value)} 
+                  className="w-full font-bold min-h-[100px] resize-none text-orange-800" 
+                />
+              </div>
+
+              <div className="space-y-3">
                 <label className="block text-sm font-black text-[#332111] uppercase tracking-wider ml-1">First Drop Date</label>
                 <input 
                   type="date" 
@@ -378,7 +393,8 @@ const App: React.FC = () => {
                   <span className="text-lg text-orange-500">₦{boxPrice.toLocaleString()}</span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 max-h-60 overflow-y-auto pr-4 custom-scrollbar">
-                  {Object.entries(box).map(([id, qty]) => {
+                  {/* Fix: Explicitly type entries to handle environments where they are inferred as unknown */}
+                  {Object.entries(box).map(([id, qty]: [string, any]) => {
                     const fruit = FRUITS.find(f => f.id === id);
                     return (
                       <div key={id} className="flex justify-between items-center text-sm bg-white p-3 rounded-2xl border-2 border-gray-100">
@@ -391,6 +407,12 @@ const App: React.FC = () => {
                     );
                   })}
                 </div>
+                {note && (
+                  <div className="mt-6 pt-4 border-t-2 border-gray-100">
+                    <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Your Note:</p>
+                    <p className="text-xs italic text-gray-600 font-bold">"{note}"</p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -447,14 +469,15 @@ const App: React.FC = () => {
              <h2 className="font-cartoon text-6xl mb-6 text-[#332111]">You're All Set!</h2>
              <div className="space-y-6 text-xl text-gray-600 font-bold mb-12">
                <p>The harvest is ready! 🧺</p>
-               <p className="bg-orange-50 p-6 rounded-3xl border-2 border-orange-100 text-orange-800 italic">
-                 "Welcome to the OfficeFruits family, <b>{companyName}</b>! We've locked in your upfront payment for <b>{frequencyMultiplier}</b> {frequency.toLowerCase()} deliveries."
-               </p>
+               <div className="bg-orange-50 p-6 rounded-3xl border-2 border-orange-100 text-orange-800 italic">
+                 <p className="mb-2">"Welcome to the OfficeFruits family, <b>{companyName}</b>! We've locked in your upfront payment for <b>{frequencyMultiplier}</b> {frequency.toLowerCase()} deliveries."</p>
+                 {note && <p className="text-sm mt-4 text-orange-600/80 border-t border-orange-200 pt-4">Your Note: "{note}"</p>}
+               </div>
                <p className="text-sm">Receipt sent to: <b>{email}</b></p>
              </div>
              <button 
                 className="cartoon-button bg-orange-500 hover:bg-orange-400 text-white font-cartoon text-2xl px-16 py-6 rounded-[30px] transition-transform hover:scale-105" 
-                onClick={() => { setStep(1); setBox({}); }}
+                onClick={() => { setStep(1); setBox({}); setNote(''); }}
               >
                 Build More Joy! 🧺
               </button>
