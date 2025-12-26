@@ -141,27 +141,59 @@ const App: React.FC = () => {
     setGuruMessage(`The ${occ} set is curated to bring the perfect energy and joy for this specific milestone! ✨`);
   };
 
-  const handlePlaceSubscription = () => {
-    if (!email || !email.includes('@')) return alert('Please enter a work email! 📧');
-    if (!companyName.trim()) return alert('Please enter your company name! 🏢');
-    if (!deliveryAddress.trim()) return alert('Please enter a delivery address! 📍');
+const handlePlaceSubscription = () => {
+  if (!email || !email.includes('@')) {
+    alert('Please enter a work email! 📧');
+    return;
+  }
 
-    const handler = window.PaystackPop.setup({
-      key: 'pk_live_83d783d7d55fc07e6b09430647aa64466ee5cf4a',
-      email: email,
-      amount: totalPrice * 100,
-      currency: 'NGN',
-      callback: async (response: any) => {
-        setIsSaving(true);
-        await supabase.from('orders').insert([{ company_name: companyName, email, delivery_address: deliveryAddress, delivery_date: deliveryDate, box_items: box, total_price: totalPrice, frequency, team_size: teamSize, paystack_reference: response.reference, status: 'paid', note, order_type: viewMode, is_bulk: isBulkGift, has_branding: includeBranding }]);
-        setIsSaving(false);
-        setStep(3);
-      },
-      onClose: () => alert('Transaction cancelled.')
-    });
-    handler.openIframe();
-  };
+  if (!companyName.trim()) {
+    alert('Please enter your company name! 🏢');
+    return;
+  }
 
+  if (!deliveryAddress.trim()) {
+    alert('Please enter a delivery address! 📍');
+    return;
+  }
+
+  const fruitSummary = Object.entries(box)
+    .map(([id, qty]) => {
+      const fruit = FRUITS.find(f => f.id === id);
+      return `${fruit?.emoji || ''} ${fruit?.name} x${qty}`;
+    })
+    .join('\n');
+
+  const message = `
+OFFICEFRUIT ORDER 🍎
+
+Company: ${companyName}
+Email: ${email}
+Team Size: ${teamSize}
+Order Type: ${viewMode === 'gifting' ? 'Corporate Gift' : 'Office Subscription'}
+
+Fruits:
+${fruitSummary}
+
+Total Amount: ₦${totalPrice.toLocaleString()}
+
+Delivery Address:
+${deliveryAddress}
+
+Note:
+${note || 'None'}
+`;
+
+  // 🔴 CHANGE THIS TO YOUR REAL WHATSAPP NUMBER
+  const whatsappNumber = '2347080770160'; 
+
+  const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+  window.open(whatsappURL, '_blank');
+
+  // Move to success screen
+  setStep(3);
+};
   return (
     <div className={`min-h-screen pb-40 relative transition-colors duration-500 ${viewMode === 'gifting' ? OCCASIONS[occasion].bg : 'bg-[#fff9f0]'}`}>
       
