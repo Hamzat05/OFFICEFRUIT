@@ -141,41 +141,70 @@ const App: React.FC = () => {
     setGuruMessage(`The ${occ} set is curated to bring the perfect energy and joy for this specific milestone! ✨`);
   };
 
-const handlePlaceSubscription = () => {
+const handlePlaceOrder = async () => {
   if (!email || !email.includes('@')) {
-    alert('Please enter a work email! 📧');
+    alert('Please enter a valid work email');
     return;
   }
 
-  if (!companyName.trim()) {
-    alert('Please enter your company name! 🏢');
+  if (!companyName.trim() || !deliveryAddress.trim()) {
+    alert('Company name and delivery address are required');
     return;
   }
 
-  if (!deliveryAddress.trim()) {
-    alert('Please enter a delivery address! 📍');
+  if (Object.keys(box).length === 0) {
+    alert('Please add fruits to your box');
     return;
   }
 
-  const fruitSummary = Object.entries(box)
-    .map(([id, qty]) => {
-      const fruit = FRUITS.find(f => f.id === id);
-      return `${fruit?.emoji || ''} ${fruit?.name} x${qty}`;
-    })
-    .join('\n');
+  try {
+    setIsSaving(true);
 
-  const message = `
-OFFICEFRUIT ORDER 🍎
+    // 1️⃣ SAVE ORDER TO SUPABASE
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([
+        {
+          company_name: companyName,
+          email,
+          delivery_address: deliveryAddress,
+          delivery_date: deliveryDate,
+          box_items: box,
+          total_price: totalPrice,
+          frequency,
+          team_size: teamSize,
+          note,
+          order_type: viewMode,
+          is_bulk: isBulkGift,
+          has_branding: includeBranding,
+          status: 'pending_whatsapp'
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // 2️⃣ BUILD WHATSAPP MESSAGE
+    const fruitSummary = Object.entries(box)
+      .map(([id, qty]) => {
+        const fruit = FRUITS.find(f => f.id === id);
+        return `• ${fruit?.emoji} ${fruit?.name} × ${qty}`;
+      })
+      .join('\n');
+
+    const message = `
+OFFICEFRUITS ORDER 🍎
 
 Company: ${companyName}
 Email: ${email}
 Team Size: ${teamSize}
-Order Type: ${viewMode === 'gifting' ? 'Corporate Gift' : 'Office Subscription'}
+Order ID: ${data.id}
 
 Fruits:
 ${fruitSummary}
 
-Total Amount: ₦${totalPrice.toLocaleString()}
+Total: ₦${totalPrice.toLocaleString()}
 
 Delivery Address:
 ${deliveryAddress}
@@ -184,16 +213,23 @@ Note:
 ${note || 'None'}
 `;
 
-  // 🔴 CHANGE THIS TO YOUR REAL WHATSAPP NUMBER
-  const whatsappNumber = '2347080770160'; 
+    // 3️⃣ OPEN WHATSAPP
+    const whatsappNumber = '2347080770160';
+    const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
-  const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappURL, '_blank');
 
-  window.open(whatsappURL, '_blank');
+    // 4️⃣ SUCCESS SCREEN
+    setStep(3);
 
-  // Move to success screen
-  setStep(3);
+  } catch (err) {
+    console.error(err);
+    alert('Something went wrong. Please try again.');
+  } finally {
+    setIsSaving(false);
+  }
 };
+
   return (
     <div className={`min-h-screen pb-40 relative transition-colors duration-500 ${viewMode === 'gifting' ? OCCASIONS[occasion].bg : 'bg-[#fff9f0]'}`}>
       
